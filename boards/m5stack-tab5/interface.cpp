@@ -1,5 +1,6 @@
 #include "powerSave.h"
 #include <M5Unified.h>
+#include <SD_MMC.h>
 #include <WiFi.h>
 #include <interface.h>
 #define SDIO2_CLK GPIO_NUM_12
@@ -21,6 +22,15 @@ void _setup_gpio() {
     Serial.println("M5.begin Passou");
     WiFi.setPins(SDIO2_CLK, SDIO2_CMD, SDIO2_D0, SDIO2_D1, SDIO2_D2, SDIO2_D3, SDIO2_RST);
     WiFi.mode(WIFI_MODE_STA);
+    // Release SD Pins from whatever
+    gpio_reset_pin((gpio_num_t)39);
+    gpio_reset_pin((gpio_num_t)40);
+    gpio_reset_pin((gpio_num_t)41);
+    gpio_reset_pin((gpio_num_t)42);
+    gpio_reset_pin((gpio_num_t)43);
+    gpio_reset_pin((gpio_num_t)44);
+    // Set SD_MMC Pins
+    SD_MMC.setPins(43, 44, 39, 40, 41, 42);
 }
 
 /***************************************************************************************

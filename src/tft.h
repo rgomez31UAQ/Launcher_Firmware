@@ -21,7 +21,7 @@ public:
     inline void drawArc(int a, int b, int c, int d, int e, int f, int g) {};
     inline void begin() { EPD_translate::init(); };
     void setFullWindow() {};
-    void display(bool a) {};
+    inline void display(bool a = false) {};
 
 private:
 };
@@ -92,6 +92,7 @@ public:
     inline void drawArc(int16_t x, int16_t y, int16_t r, int16_t ir, int16_t sA, int16_t eA, int16_t fg) {
         TFT_eSPI::drawArc(x, y, r, ir, sA, eA, fg, TFT_BLACK, true);
     };
+    inline void display(bool a = false) {};
 };
 
 #elif defined(USE_LOVYANGFX)
@@ -119,6 +120,7 @@ public:
     inline void drawRightString(String s, uint16_t x, uint16_t y, int f) {
         lgfx::LGFX_Device::drawRightString(s, x, y);
     };
+    inline void display(bool a = false) {};
 
     Ard_eSPI(void) {
         {
@@ -229,7 +231,10 @@ public:
 #endif
     };
     void setFullWindow() {};
+#else
+    inline void display(bool a = false) {};
 #endif
+
     // End of E-Paper functions
     inline int getTextsize() { return _fsize; };
     inline uint16_t getTextcolor() { return _fg; };
@@ -310,7 +315,7 @@ public:
 #define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ST7735(a, b, c, d, e, f, g, h, i, j)
 #elif ILI9341_DRIVER
 #define _TFT_DRV Arduino_ILI9341
-#define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ILI9341(a, b, c)
+#define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ILI9341(a, b, c, d, e, f)
 #elif ILI9488_DRIVER
 #define _TFT_DRV Arduino_ILI9488
 #define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ILI9488(a, b, c)
@@ -326,23 +331,42 @@ public:
 #elif AXS15231B_QSPI
 #define _TFT_DRV Arduino_AXS15231B
 #define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_AXS15231B(a, b, c, d, e, f)
+#elif DRIVER_CO5300
+#define _TFT_DRV Arduino_CO5300
+#define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_CO5300(a, b, c, e, f, g, h, i, j)
 #elif DRIVER_RM67162
 #define _TFT_DRV Arduino_RM67162
 #define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_RM67162(a, b, c, d)
 #else
 // CYD Default to not shoot errors on screen
 #define _TFT_DRV Arduino_ILI9341
-#define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ILI9341(a, b, c)
+#define _TFT_DRVF(a, b, c, d, e, f, g, h, i, j) Arduino_ILI9341(a, b, c, d, e, f)
 #endif
 
-class Ard_eSPI : public _TFT_DRV {
+// #define USE_CANVAS // testing purpose
+#ifdef USE_CANVAS
+#include <canvas/Arduino_Canvas.h>
+#define ARD_TFT_BASE Arduino_Canvas
+#else
+#define ARD_TFT_BASE _TFT_DRV
+#endif
+
+class Ard_eSPI : public ARD_TFT_BASE {
 public:
     // Driver initilizer
     Ard_eSPI(
         TFT_BUS_TYPE *bus, int8_t rst, uint8_t rotation, bool ips, uint16_t w, uint16_t h, uint16_t co1,
         uint16_t ro1, uint16_t co2, uint16_t ro2
     )
-        : _TFT_DRVF(bus, rst, rotation, ips, w, h, co1, ro1, co2, ro2) {}
+#ifdef USE_CANVAS
+        : ARD_TFT_BASE(rotation & 0x1 ? h : w, rotation & 0x1 ? w : h, nullptr, 0, 0, 0),
+          _outputDriver(_TFT_DRVF(bus, rst, rotation, ips, w, h, co1, ro1, co2, ro2)) {
+        this->_output = &_outputDriver;
+    }
+#else
+        : _TFT_DRVF(bus, rst, rotation, ips, w, h, co1, ro1, co2, ro2) {
+    }
+#endif
 
     inline void drawChar2(int16_t x, int16_t y, char c, int16_t a, int16_t b) { drawChar(x, y, c, a, b); };
     void drawString(String s, uint16_t x, uint16_t y);
@@ -351,8 +375,25 @@ public:
     inline int getTextsize() { return textsize_x; };
     inline uint16_t getTextcolor() { return textcolor; };
     inline uint16_t getTextbgcolor() { return textbgcolor; };
+#ifdef USE_CANVAS
+    inline bool begin(int32_t speed = GFX_NOT_DEFINED) { return ARD_TFT_BASE::begin(speed); }
+    inline void setRotation(uint8_t rot) {
+        // ARD_TFT_BASE::setRotation(rot);
+        _outputDriver.setRotation(rot);
+    }
+    inline void invertDisplay(bool i) { _outputDriver.invertDisplay(i); }
+#endif
+
+    void display(bool a = false) {
+#ifdef USE_CANVAS
+        this->flush(true);
+#endif
+    };
 
 private:
+#ifdef USE_CANVAS
+    _TFT_DRV _outputDriver;
+#endif
 };
 
 #define BLACK RGB565_BLACK
